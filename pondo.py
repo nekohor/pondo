@@ -46,11 +46,14 @@ class PartTable():
 class PondReader():
 
     def __init__(self, dcafile, signalname):
+        print(dcafile)
+        print(signalname)
         self.raw_cmd = "pndex.exe"
         self.cmd = " ".join([self.raw_cmd, dcafile, signalname])
         self.p = subprocess.Popen(
             self.cmd, shell=True, stdout=subprocess.PIPE).stdout
         self.raw_seires = pd.Series(self.p.read().decode().split(","))
+        print(self.raw_seires)
         if (self.raw_seires.size == 1) & (self.raw_seires[0] == ""):
             self.series = pd.Series([])
         else:
@@ -212,12 +215,13 @@ class PondTask(object):
         self.raw_df = pd.DataFrame(index=range(0, self.MAX_INDEX))
         for coil_id in self.coil_id_table.index:
             product_date = self.generate_date(
-                self.coil_id_table.loc[coil_id, product_date_col])
+                self.coil_id_table.loc[coil_id, self.product_date_col])
             pi = PondIndicator(self.line, self.data_dir,
                                product_date, coil_id)
             # refactoring this later
-            self.raw_df[coil_id] = pi.triple_calc(
-                "flt_ro3", "flt_ro1", "flt_ro5")
+            # self.raw_df[coil_id] = pi.triple_calc(
+            #     "flt_ro3", "flt_ro1", "flt_ro5")
+            self.raw_df[coil_id] = pi.single_calc("thick_clg")
             print("Complete! {} data got".format(coil_id))
         self.raw_df.to_excel(result_dir)
 
@@ -257,3 +261,20 @@ def pondo(**kwargs):
     tsk_obj.dump_setup(coil_id_col, product_date_col)
     tsk_obj.task_operation(result_dir)
 # tsk_obj.get_total_data("test.xlsx")
+
+
+def pondo_total(**kwargs):
+    # ============== 10 setups ======================
+    for k in kwargs:
+        line = kwargs["line"]
+        coil_id_table_filename = kwargs["coil_id_table_filename"]
+        data_dir = kwargs["data_dir"]
+        coil_id_col = kwargs["coil_id_col"]
+        product_date_col = kwargs["product_date_col"]
+        result_dir = kwargs["result_dir"]
+
+    coil_id_table = pd.read_excel(coil_id_table_filename)
+    # ==============================================
+    tsk_obj = PondTask(line, coil_id_table, data_dir)
+    tsk_obj.dump_setup(coil_id_col, product_date_col)
+    tsk_obj.get_total_data(result_dir)
