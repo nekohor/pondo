@@ -23,6 +23,12 @@ class PartTable():
     def get_month(self, the_date):
         return the_date // 100
 
+    def get_dca_file(self, data_dir, product_date, coil_id):
+        if product_date:
+            return self.date_dca_file(data_dir, product_date, coil_id)
+        else:
+            return self.custom_dca_file(data_dir, coil_id)
+
     def date_dca_file(self, data_dir, product_date, coil_id):
         return "/".join([data_dir,
                          "{}".format(self.get_month(product_date)),
@@ -75,9 +81,19 @@ class PondIndicator():
         else:
             self.aim = root_series[aim_col]
 
+    def merge(self, *part_args):
+        if len(part_args) == 1:
+            return self.single_calc(*part_args)
+        elif len(part_args) == 2:
+            return self.double_calc(*part_args)
+        elif len(part_args) == 3:
+            return self.triple_calc(*part_args)
+        else:
+            raise Exception("wrong part args")
+
     def single_calc(self, cl_part):
         pt = PartTable(self.line, cl_part)
-        pr = PondReader(pt.date_dca_file(
+        pr = PondReader(pt.get_dca_file(
             self.data_dir, self.product_date, self.coil_id),
             pt.signal_name)
         return pr.series
@@ -89,7 +105,7 @@ class PondIndicator():
 
         pr = {}
         for k, v in pt.items():
-            pr[k] = PondReader(v.date_dca_file(
+            pr[k] = PondReader(v.get_dca_file(
                 self.data_dir, self.product_date, self.coil_id),
                 v.signal_name)
 
@@ -103,7 +119,7 @@ class PondIndicator():
 
         pr = {}
         for k, v in pt.items():
-            pr[k] = PondReader(v.date_dca_file(
+            pr[k] = PondReader(v.get_dca_file(
                 self.data_dir, self.product_date, self.coil_id),
                 v.signal_name)
 
@@ -168,6 +184,8 @@ class PondIndicator():
             return self.data_series.mean()
         elif algorithm == "std":
             return self.data_series.std()
+        elif algorithm == "first":
+            return self.data_series[0]
         elif algorithm == "aimrate":
             return self.aimrate(task_series)
         else:
@@ -199,38 +217,39 @@ class PondTask(object):
         self.task_table = self.task_table.loc[
             self.task_table["LINE"] == self.line]
 
-    def dump_setup(self, coil_id_col, product_date_col, aim_col=None):
+    def dump_setup(self, coil_id_col, product_date_col=None, aim_col=None):
         self.coil_id_col = coil_id_col
         self.product_date_col = product_date_col
         self.aim_col = aim_col
         self.coil_id_table.index = self.coil_id_table[coil_id_col]
-        self.coil_id_table[self.product_date_col] = pd.to_datetime(
-            self.coil_id_table[self.product_date_col])
+        if self.product_date_col:
+            self.coil_id_table[self.product_date_col] = pd.to_datetime(
+                self.coil_id_table[self.product_date_col])
+        else:
+            pass
 
-    def generate_date(self, ts):
-        return ts.year * 10000 + ts.month * 100 + ts.day
+    def generate_date(self, coil_id):
+        if self.product_date_col:
+            ts = self.coil_id_table.loc[coil_id, self.product_date_col]
+            return ts.year * 10000 + ts.month * 100 + ts.day
+        else:
+            return None
 
-    def get_total_data(self, result_dir):
+    def get_total_data(self, *part_args, result_dir):
         self.MAX_INDEX = 1500
         self.raw_df = pd.DataFrame(index=range(0, self.MAX_INDEX))
         for coil_id in self.coil_id_table.index:
-            product_date = self.generate_date(
-                self.coil_id_table.loc[coil_id, self.product_date_col])
             pi = PondIndicator(self.line, self.data_dir,
-                               product_date, coil_id)
-            # refactoring this later
-            # self.raw_df[coil_id] = pi.triple_calc(
-            #     "flt_ro3", "flt_ro1", "flt_ro5")
-            self.raw_df[coil_id] = pi.single_calc("thick_clg")
+                               self.generate_date(coil_id), coil_id)
+            self.raw_df[coil_id] = pi.merge(*part_args)
             print("Complete! {} data got".format(coil_id))
         self.raw_df.to_excel(result_dir)
 
     def task_operation(self, result_dir):
         self.df = pd.DataFrame()
         for coil_id in self.coil_id_table.index:
-            product_date = self.generate_date(
-                self.coil_id_table.loc[coil_id, self.product_date_col])
-            pi = PondIndicator(self.line, self.data_dir, product_date, coil_id)
+            pi = PondIndicator(self.line, self.data_dir,
+                               self.generate_date(coil_id), coil_id)
             for task in self.task_table.index:
                 task_series = self.task_table.loc[task]
                 pi.inject_aim(self.coil_id_table.loc[coil_id],
@@ -277,4 +296,4 @@ def pondo_total(**kwargs):
     # ==============================================
     tsk_obj = PondTask(line, coil_id_table, data_dir)
     tsk_obj.dump_setup(coil_id_col, product_date_col)
-    tsk_obj.get_total_data(result_dir)
+    tsk_obj.get_total_data("thick_clg", result_dir)
