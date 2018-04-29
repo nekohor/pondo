@@ -11,9 +11,10 @@ plt.rcParams["axes.unicode_minus"] = False
 class PartTable():
 
     def __init__(self, line, part):
-        self.table = pd.read_excel("part_table.xlsx")
+        self.table = pd.read_excel("../pondo/part_table.xlsx")
         self.part_table = self.table.loc[
             (self.table["LINE"] == line) & (self.table["PART"] == part)]
+        print(part)
         self.index = self.part_table.index[0]
         self.signal_name = self.part_table.loc[
             self.index, "SIGNAL"].replace('\\\\', '\\')
@@ -212,10 +213,6 @@ class PondTask(object):
         self.line = line
         self.coil_id_table = coil_id_table
         self.data_dir = data_dir
-        # ===task table===
-        self.task_table = pd.read_excel("task_table.xlsx")
-        self.task_table = self.task_table.loc[
-            self.task_table["LINE"] == self.line]
 
     def dump_setup(self, coil_id_col, product_date_col=None, aim_col=None):
         self.coil_id_col = coil_id_col
@@ -242,10 +239,14 @@ class PondTask(object):
             pi = PondIndicator(self.line, self.data_dir,
                                self.generate_date(coil_id), coil_id)
             self.raw_df[coil_id] = pi.merge(*part_args)
-            print("Complete! {} data got".format(coil_id))
+            print("Complete {}! data got".format(coil_id))
         self.raw_df.to_excel(result_dir)
 
     def task_operation(self, result_dir):
+        # ===task table===
+        self.task_table = pd.read_excel("../pondo/task_table.xlsx")
+        self.task_table = self.task_table.loc[
+            self.task_table["LINE"] == self.line]
         self.df = pd.DataFrame()
         for coil_id in self.coil_id_table.index:
             pi = PondIndicator(self.line, self.data_dir,
