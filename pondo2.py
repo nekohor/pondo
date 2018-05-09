@@ -11,11 +11,12 @@ plt.rcParams["axes.unicode_minus"] = False
 class CoilIdTable():
 
     def __init__(self, setup_dict):
-        self.table = pd.read_excel(setup_dict["coil_id_table_filename"])
+        self.root_dir = setup_dict["root_dir"]
+        self.table = pd.read_excel(
+            self.root_dir + "/" + setup_dict["coil_id_table_filename"])
         self.data_dir = setup_dict["data_dir"]
         self.coil_id_col = setup_dict["coil_id_col"]
         self.date_col = setup_dict["date_col"]
-        self.aim_col = setup_dict["aim_col"]
         self.table.index = self.table[self.coil_id_col]
         if self.date_col:
             self.table[self.date_col] = pd.to_datetime(
@@ -108,10 +109,10 @@ class PondIndicator():
         self.dca_path = dca_path
 
     def set_aim(self, rule, cid, coil_id):
-        if rule["AIM"] == 0:
+        if str(rule["AIM"]) == "0":
             pass
         else:
-            self.aim = cid.table.loc[coil_id, cid.aim_col]
+            self.aim = cid.table.loc[coil_id, rule["AIM"]]
 
     def merge(self, *part_args):
         if len(part_args) == 1:
@@ -239,6 +240,7 @@ class PondIndicator():
 class PondTask(object):
 
     def __init__(self, setup_dict):
+        self.setup_dict = setup_dict
         self.part_table = PartTable(setup_dict["line"])
         self.cid = CoilIdTable(setup_dict)
 
@@ -254,7 +256,7 @@ class PondTask(object):
         self.raw_df.to_excel(result_dir)
 
     def get_task_stat(self, result_dir):
-        self.tsk_tbl = TaskTable(setup_dict["line"])
+        self.tsk_tbl = TaskTable(self.setup_dict["line"])
         df = pd.DataFrame()
         for coil_id in self.cid.table.index:
             pi = PondIndicator(
@@ -286,7 +288,7 @@ def pondo_total(setup_dict, *args):
 def pondo_total_batch(setup_dict):
     semi_tsk_tbl = SemiTaskTable(setup_dict["line"])
     tsk_obj = PondTask(setup_dict)
-    data_dest = setup_dict["result_dir"] + "{}.xlsx"
+    data_dest = setup_dict["result_dir"] + "/{}.xlsx"
     for semi_task in semi_tsk_tbl.table.index:
         rule = semi_tsk_tbl.table.loc[semi_task]
         p_count = rule["P_COUNT"]
