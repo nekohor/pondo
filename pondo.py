@@ -45,6 +45,7 @@ class PartTable():
                          self.single_dca_file])
 
     def custom_dca_file(self, data_dir, coil_id):
+        print(data_dir, coil_id, self.single_dca_file)
         return "/".join([data_dir,
                          coil_id,
                          self.single_dca_file])

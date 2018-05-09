@@ -25,9 +25,9 @@ class CoilIdTable():
 
     def get_dca_path(self, coil_id):
         if self.date_col:
-            self.date_dca_path(coil_id)
+            return self.date_dca_path(coil_id)
         else:
-            self.custom_dca_path(coil_id)
+            return self.custom_dca_path(coil_id)
 
     def to_month(self, ts):
         return ts.year * 100 + ts.month
@@ -53,6 +53,11 @@ class TaskTable():
     def __init__(self, line):
         self.table = pd.read_excel("../pondo/task_table.xlsx")
         self.table = self.table.loc[self.table["LINE"] == line]
+
+
+class SemiTaskTable():
+    def __init__(self, line):
+        self.table =
 
 
 class PartTable():
@@ -208,8 +213,16 @@ class PondIndicator():
 
     def aimrate(self, rule):
         tol = rule["TOL"]
+        up_lvl = rule["UPPER"]
+        lo_lvl = rule["LOWER"]
         ss = self.data_series
-        if rule["AIM"] == 0:
+        if tol == 0:
+            try:
+                rate = round(ss.loc[(ss <= up_lvl) & (ss >= lo_lvl)].shape[0] /
+                             ss.shape[0] * 100, 2)
+            except ZeroDivisionError:
+                rate = np.nan
+        elif rule["AIM"] == 0:
             try:
                 rate = round(ss.loc[ss.abs() <= tol].shape[0] /
                              ss.shape[0] * 100, 2)
@@ -245,8 +258,8 @@ class PondTask(object):
             pi = PondIndicator(
                 self.part_table,
                 self.cid.get_dca_path(coil_id))
-            for task in self.task_table.index:
-                rule = self.task_table.loc[task]
+            for task in self.task_table.table.index:
+                rule = self.task_table.table.loc[task]
                 pi.set_aim(rule, self.cid, coil_id)
                 pi.part_convergence(rule)
                 df.loc[coil_id, self.concat_column(rule)] = (
@@ -266,3 +279,7 @@ def pondo(setup_dict):
 def pondo_total(setup_dict, *args):
     tsk_obj = PondTask(setup_dict)
     tsk_obj.get_total_data(*args, setup_dict["result_dir"])
+
+
+def pondo_total_batch(setup_dict):
+    tsk_obj = PondTask(setup_dict)
