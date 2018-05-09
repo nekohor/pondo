@@ -53,11 +53,13 @@ class TaskTable():
     def __init__(self, line):
         self.table = pd.read_excel("../pondo/task_table.xlsx")
         self.table = self.table.loc[self.table["LINE"] == line]
+        self.table.index = self.table["ITEM"]
 
 
 class SemiTaskTable():
     def __init__(self, line):
-        self.table =
+        self.table = pd.read_excel("../pondo/semi_task_table.xlsx")
+        self.table = self.table.loc[self.table["LINE"] == line]
 
 
 class PartTable():
@@ -238,7 +240,6 @@ class PondTask(object):
 
     def __init__(self, setup_dict):
         self.part_table = PartTable(setup_dict["line"])
-        self.task_table = TaskTable(setup_dict["line"])
         self.cid = CoilIdTable(setup_dict)
 
     def get_total_data(self, *part_args, result_dir):
@@ -253,13 +254,14 @@ class PondTask(object):
         self.raw_df.to_excel(result_dir)
 
     def get_task_stat(self, result_dir):
+        self.tsk_tbl = TaskTable(setup_dict["line"])
         df = pd.DataFrame()
         for coil_id in self.cid.table.index:
             pi = PondIndicator(
                 self.part_table,
                 self.cid.get_dca_path(coil_id))
-            for task in self.task_table.table.index:
-                rule = self.task_table.table.loc[task]
+            for task in self.tsk_tbl.table.index:
+                rule = self.tsk_tbl.table.loc[task]
                 pi.set_aim(rule, self.cid, coil_id)
                 pi.part_convergence(rule)
                 df.loc[coil_id, self.concat_column(rule)] = (
@@ -282,4 +284,21 @@ def pondo_total(setup_dict, *args):
 
 
 def pondo_total_batch(setup_dict):
+    semi_tsk_tbl = SemiTaskTable(setup_dict["line"])
     tsk_obj = PondTask(setup_dict)
+    data_dest = setup_dict["result_dir"] + "{}.xlsx"
+    for semi_task in semi_tsk_tbl.table.index:
+        rule = semi_tsk_tbl.table.loc[semi_task]
+        p_count = rule["P_COUNT"]
+        if p_count == 1:
+            tsk_obj.get_total_data(
+                rule["PART_CL"], data_dest.format(semi_task))
+        elif p_count == 2:
+            tsk_obj.get_total_data(
+                rule["PART_OS"],
+                rule["PART_DS"], data_dest.format(semi_task))
+        elif p_count == 3:
+            tsk_obj.get_total_data(
+                rule["PART_CL"],
+                rule["PART_OS"],
+                rule["PART_DS"], data_dest.format(semi_task))
