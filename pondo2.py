@@ -1,8 +1,11 @@
+import os
 import subprocess
 import matplotlib.pyplot as plt
 import matplotlib
 import pandas as pd
 import numpy as np
+# from datetime import datetime
+
 matplotlib.style.use('ggplot')
 plt.rcParams["font.sans-serif"] = ["Microsoft Yahei"]
 plt.rcParams["axes.unicode_minus"] = False
@@ -13,11 +16,18 @@ class CoilIdTable():
     def __init__(self, setup_dict):
         self.root_dir = setup_dict["root_dir"]
         self.table = pd.read_excel(
-            self.root_dir + "/" + setup_dict["coil_id_table_filename"])
+            os.path.join(self.root_dir, setup_dict["coil_id_table_filename"]))
         self.data_dir = setup_dict["data_dir"]
         self.coil_id_col = setup_dict["coil_id_col"]
         self.date_col = setup_dict["date_col"]
         self.table.index = self.table[self.coil_id_col]
+
+        if not os.path.exists(setup_dict["result_dir"]):
+            if "." in setup_dict["result_dir"]:
+                pass
+            else:
+                os.makedirs(setup_dict["result_dir"])
+
         if self.date_col:
             self.table[self.date_col] = pd.to_datetime(
                 self.table[self.date_col])
@@ -54,13 +64,13 @@ class TaskTable():
     def __init__(self, line):
         self.table = pd.read_excel("../pondo/task_table.xlsx")
         self.table = self.table.loc[self.table["LINE"] == line]
-        self.table.index = self.table["ITEM"]
 
 
 class SemiTaskTable():
     def __init__(self, line):
         self.table = pd.read_excel("../pondo/semi_task_table.xlsx")
         self.table = self.table.loc[self.table["LINE"] == line]
+        self.table.index = self.table["ITEM"]
 
 
 class PartTable():
@@ -90,7 +100,7 @@ class PondReader():
     def __init__(self, dcafile, signalname):
         print(dcafile)
         print(signalname)
-        self.raw_cmd = "pndex.exe"
+        self.raw_cmd = "C:/Windows/pndex.exe"
         self.cmd = " ".join([self.raw_cmd, dcafile, signalname])
         self.p = subprocess.Popen(
             self.cmd, shell=True, stdout=subprocess.PIPE).stdout
@@ -275,6 +285,10 @@ class PondTask(object):
         return ("_".join([rule["ITEM"], rule["CALC"]])).upper()
 
 
+def name_fmt(setup_dict):
+    return "_{}.xlsx".format(setup_dict["line"])
+
+
 def pondo(setup_dict):
     tsk_obj = PondTask(setup_dict)
     tsk_obj.get_task_stat(setup_dict["result_dir"])
@@ -286,21 +300,24 @@ def pondo_total(setup_dict, *args):
 
 
 def pondo_total_batch(setup_dict):
-    semi_tsk_tbl = SemiTaskTable(setup_dict["line"])
     tsk_obj = PondTask(setup_dict)
-    data_dest = setup_dict["result_dir"] + "/{}.xlsx"
+    semi_tsk_tbl = SemiTaskTable(setup_dict["line"])
+    data_dest = setup_dict["result_dir"] + "/{}" + name_fmt(setup_dict)
     for semi_task in semi_tsk_tbl.table.index:
         rule = semi_tsk_tbl.table.loc[semi_task]
         p_count = rule["P_COUNT"]
         if p_count == 1:
             tsk_obj.get_total_data(
-                rule["PART_CL"], data_dest.format(semi_task))
+                rule["PART_CL"],
+                result_dir=data_dest.format(semi_task))
         elif p_count == 2:
             tsk_obj.get_total_data(
                 rule["PART_OS"],
-                rule["PART_DS"], data_dest.format(semi_task))
+                rule["PART_DS"],
+                result_dir=data_dest.format(semi_task))
         elif p_count == 3:
             tsk_obj.get_total_data(
                 rule["PART_CL"],
                 rule["PART_OS"],
-                rule["PART_DS"], data_dest.format(semi_task))
+                rule["PART_DS"],
+                result_dir=data_dest.format(semi_task))
