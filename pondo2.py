@@ -90,8 +90,11 @@ class PartTable():
 
     def dca_file(self, part, dca_path):
         self.build_part_table(part)
-        single_dca_file = self.part_table.loc[
-            self.idx, "DCAFILE"] + "_POND.dca"
+        preffix_dca_file = self.part_table.loc[self.idx, "DCAFILE"].upper()
+        if "POND" in preffix_dca_file:
+            single_dca_file = preffix_dca_file + ".dca"
+        else:
+            single_dca_file = preffix_dca_file + "_POND.dca"
         return "/".join([dca_path, single_dca_file])
 
 
@@ -188,8 +191,16 @@ class PondIndicator():
 
     def data_processing(self, rule):
         self.data_series = self.conv_series.loc[self.conv_series.notnull()]
+        self.segement_except_handle(rule)
         self.segment_handle(rule)
         return self.algorithm_run(rule)
+
+    def segement_except_handle(self, rule):
+        part_cl_name = rule["PART_CL"]
+        if "r2dt" == part_cl_name.lower():
+            self.data_series = self.data_series[5:-15]
+        else:
+            pass
 
     def segment_handle(self, rule):
         segment = rule["SEGMENT"]
