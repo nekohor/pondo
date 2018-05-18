@@ -229,7 +229,10 @@ class PondIndicator():
         elif algorithm == "std":
             return self.data_series.std()
         elif algorithm == "first":
-            return self.data_series[0]
+            try:
+                return self.data_series[0]
+            except IndexError:
+                return np.nan
         elif algorithm == "aimrate":
             return self.aimrate(rule)
         else:
