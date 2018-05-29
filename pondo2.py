@@ -91,6 +91,7 @@ class PartTable():
     def dca_file(self, part, dca_path):
         self.build_part_table(part)
         preffix_dca_file = self.part_table.loc[self.idx, "DCAFILE"].upper()
+        print("preffix", preffix_dca_file)
         if "POND" in preffix_dca_file:
             single_dca_file = preffix_dca_file + ".dca"
         else:
@@ -229,10 +230,7 @@ class PondIndicator():
         elif algorithm == "std":
             return self.data_series.std()
         elif algorithm == "first":
-            try:
-                return self.data_series[0]
-            except IndexError:
-                return np.nan
+            return self.data_series[self.data_series.index[0]]
         elif algorithm == "aimrate":
             return self.aimrate(rule)
         else:
