@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 import matplotlib
 import pandas as pd
 import numpy as np
-# from datetime import datetime
 
 matplotlib.style.use('ggplot')
 plt.rcParams["font.sans-serif"] = ["Microsoft Yahei"]
@@ -20,13 +19,14 @@ class CoilIdTable():
         self.data_dir = setup_dict["data_dir"]
         self.coil_id_col = setup_dict["coil_id_col"]
         self.date_col = setup_dict["date_col"]
+        self.result_dir = setup_dict["result_dir"]
         self.table.index = self.table[self.coil_id_col]
 
-        if not os.path.exists(setup_dict["result_dir"]):
-            if "." in setup_dict["result_dir"]:
+        if not os.path.exists(self.result_dir):
+            if "." in self.result_dir:
                 pass
             else:
-                os.makedirs(setup_dict["result_dir"])
+                os.makedirs(self.result_dir)
 
         if self.date_col:
             self.table[self.date_col] = pd.to_datetime(
@@ -90,12 +90,8 @@ class PartTable():
 
     def dca_file(self, part, dca_path):
         self.build_part_table(part)
-        preffix_dca_file = self.part_table.loc[self.idx, "DCAFILE"].upper()
-        print("preffix", preffix_dca_file)
-        if "POND" in preffix_dca_file:
-            single_dca_file = preffix_dca_file + ".dca"
-        else:
-            single_dca_file = preffix_dca_file + "_POND.dca"
+        preffix_dca_file = self.part_table.loc[self.idx, "DCAFILE"]
+        single_dca_file = preffix_dca_file + ".dca"
         return "/".join([dca_path, single_dca_file])
 
 

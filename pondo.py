@@ -19,7 +19,7 @@ class PartTable():
         self.signal_name = self.part_table.loc[
             self.index, "SIGNAL"].replace('\\\\', '\\')
         self.single_dca_file = self.part_table.loc[
-            self.index, "DCAFILE"] + "_POND.dca"
+            self.index, "DCAFILE"] + ".dca"
 
     def get_month(self, the_date):
         return the_date // 100
@@ -56,7 +56,7 @@ class PondReader():
     def __init__(self, dcafile, signalname):
         print(dcafile)
         print(signalname)
-        self.raw_cmd = "pndex.exe"
+        self.raw_cmd = "C:/Windows/pndex.exe"
         self.cmd = " ".join([self.raw_cmd, dcafile, signalname])
         self.p = subprocess.Popen(
             self.cmd, shell=True, stdout=subprocess.PIPE).stdout
