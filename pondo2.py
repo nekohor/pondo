@@ -263,7 +263,7 @@ class PondTask(object):
         self.cid = CoilIdTable(setup_dict)
 
     def get_total_data(self, *part_args, result_dir):
-        self.MAX_INDEX = 1500
+        self.MAX_INDEX = 1050
         self.raw_df = pd.DataFrame(index=range(0, self.MAX_INDEX))
         for coil_id in self.cid.table.index:
             pi = PondIndicator(

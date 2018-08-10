@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import matplotlib.pyplot as plt
 import matplotlib
@@ -70,7 +71,7 @@ class TaskTable():
 class PartTable():
 
     def __init__(self, line):
-        self.table = pd.read_excel("../pondo/part_table.xlsx")
+        self.table = pd.read_excel(sys.path[0] + "/part_table.xlsx")
         self.table = self.table.loc[self.table["LINE"] == line]
 
     def build_part_table(self, part):
@@ -157,11 +158,12 @@ class BoundaryProcess():
         self.build_bound()
 
     def build_tolerance_by_thick(self):
-        if np.isnan(self.rule["TOL_FN"]):
+        if np.isnan(self.rule["TOL_PERC"]):
             self.lower = -self.rule["TOL"]
             self.upper = self.rule["TOL"]
         else:
-            tol = (self.rule["TOL_FN"] * self.cid_record[self.aim_thick_col])
+            tol = (self.rule["TOL_PERC"] / 100 *
+                   self.cid_record[self.aim_thick_col])
             self.lower = -np.maximum(tol, self.rule["TOL_MAX"])
             self.upper = np.maximum(tol, self.rule["TOL_MAX"])
 
@@ -174,7 +176,12 @@ class BoundaryProcess():
         return self.cid_record[self.setup_dict["aim_{}_col".format(aim_tag)]]
 
     def build_tolerance(self):
-        if str(self.rule["AIM"]) == "0":
+        print(str(self.rule["AIM"]))
+        if str(self.rule["AIM"]) == "nan":
+            self.lower = 0
+            self.upper = 0
+        elif (str(self.rule["AIM"]) == "0") or (
+                str(self.rule["AIM"]) == "0.0"):
             self.build_tolerance_by_thick()
         else:
             self.build_tolerance_by_aim()
@@ -261,6 +268,8 @@ class PondItem():
             if ((rule["STAT_FN"] in ["max", "min"]) & (
                     rule["PART_CL"] == "flt_ro3")):
                 self.calc_result = -self.calc_result
+            else:
+                pass
         finally:
             pass
 
@@ -269,6 +278,30 @@ class PondItem():
             self.calc_result = np.nan
         else:
             pass
+
+    def all_run(self):
+        self.raw_cmd = "C:/Windows/pondex.exe"
+        self.argv = []
+        self.argv.append(self.raw_cmd)
+        self.argv.append(self.dca_file)
+        self.argv.extend(self.signals)
+        self.argv.extend([self.stat_name, self.seg_name])
+        self.argv.extend(
+            [str(0), str(0),
+             str(0), str(0)])
+        self.argv.extend([str(0), str(0)])
+        self.cmd = " ".join(self.argv)
+        # print(self.cmd)
+        self.p = subprocess.Popen(
+            self.cmd, shell=True, stdout=subprocess.PIPE).stdout
+        self.raw_seires = pd.Series(self.p.read().decode().split(","))
+        print(self.raw_seires)
+        if (self.raw_seires.size == 1) & (self.raw_seires[0] == ""):
+            self.series = pd.Series([])
+        else:
+            self.series = pd.to_numeric(self.raw_seires)
+        # all_run
+        self.calc_result = self.series
 
     def result(self):
         return self.calc_result
@@ -308,19 +341,33 @@ class PondTask(object):
             print("Complete {}!".format(coil_id))
         df.to_excel(self.cid.result_dir)
 
+    def task_all(self):
+        MAX_INDEX = 1500
+        df = pd.DataFrame(index=range(0, MAX_INDEX))
+        for task in self.tsk_tbl.table.index:
+            rule = self.tsk_tbl.table.loc[task]
+            for coil_id in self.cid.table.index:
+                pi = PondItem(self.part_tbl,
+                              self.cid.get_dca_path(coil_id))
+                pi.pre_handle(rule)
+                pi.all_run()
+                df[coil_id] = pi.result()
+                print("Complete {}! data got".format(coil_id))
+            file_name = rule["ITEM"] + ".xlsx"
+            df.to_excel(os.path.join(self.cid.result_dir, file_name))
+
 
 class ColumnProcess():
 
     def __init__(self, rule):
         self.rule = rule
         self.col = ""
-        self.tolerance_attach()
-        self.flatness_transfer()
+        self.tolerance_add(self.rule)
+        self.flatness_transfer(self.rule)
 
-    def tolerance_attach(self):
-        rule = self.rule
+    def tolerance_attach_old(self, rule):
         if np.isnan(rule["THK_BOT"]) & np.isnan(rule["THK_TOP"]):
-            self.lower_to_upper_or_tol()
+            self.lower_to_upper_or_tol(rule)
         else:
             self.col = "_".join([
                 rule["SEGMENT"],
@@ -329,15 +376,21 @@ class ColumnProcess():
                 "{:>05.2f}_{:>05.2f}".format(
                     rule["THK_BOT"], rule["THK_TOP"])])
 
-    def lower_to_upper_or_tol(self):
-        rule = self.rule
+    def build_simple_col(self, rule):
+        self.col = "_".join([
+            rule["SEGMENT"],
+            rule["ITEM"],
+            rule["STAT_FN"]])
+
+    def tolerance_add(self, rule):
+        if rule["STAT_FN"].lower() == "aimrate":
+            self.lower_to_upper_or_tol(rule)
+        else:
+            self.build_simple_col(rule)
+
+    def lower_to_upper_or_tol(self, rule):
         if np.isnan(rule["LOWER"]) & np.isnan(rule["UPPER"]):
-            tol_tag = "{}".format(rule["TOL"])
-            self.col = "_".join([
-                rule["SEGMENT"],
-                rule["ITEM"],
-                rule["STAT_FN"],
-                self.cut_to_int(tol_tag)])
+            self.absolute_tol_or_perc_tol(rule)
         else:
             lower_tag = "{}".format(rule["LOWER"])
             upper_tag = "{}".format(rule["UPPER"])
@@ -348,27 +401,66 @@ class ColumnProcess():
                 self.cut_to_int(lower_tag),
                 self.cut_to_int(upper_tag)])
 
+    def absolute_tol_or_perc_tol(self, rule):
+        if np.isnan(rule["TOL_PERC"]) & np.isnan(rule["TOL_MAX"]):
+            self.build_absolute_tol_col(rule)
+        else:
+            self.build_perc_tol_col(rule)
+
+    def build_absolute_tol_col(self, rule):
+        tol_tag = "{}".format(rule["TOL"] * self.mm_to_um(rule))
+        self.col = "_".join([
+            rule["SEGMENT"],
+            rule["ITEM"],
+            rule["STAT_FN"],
+            self.cut_to_int(tol_tag)])
+
+    def build_perc_tol_col(self, rule):
+        tol_max = "{}".format(rule["TOL_MAX"] * self.mm_to_um(rule))
+        self.col = "_".join([
+            rule["SEGMENT"],
+            rule["ITEM"],
+            rule["STAT_FN"],
+            "{}%".format(rule["TOL_PERC"]),
+            "max{}".format(self.cut_to_int(tol_max))])
+
+    def mm_to_um(self, rule):
+        if rule["MM_TO_UM"] == 1:
+            return 1000
+        else:
+            return 1
+
     def cut_to_int(self, tag):
         if tag[-2:] == ".0":
             return tag[:-2]
         else:
             return tag
 
-    def flatness_transfer(self):
-        rule = self.rule
+    def flatness_transfer(self, rule):
         if rule["PART_CL"] == "flt_ro3":
             if rule["STAT_FN"] == "max":
                 stat_tag = "min"
             elif rule["STAT_FN"] == "min":
                 stat_tag = "max"
+            elif rule["STAT_FN"] == "mean":
+                stat_tag = "mean"
+            elif rule["STAT_FN"] == "all":
+                stat_tag = "all"
+            elif rule["STAT_FN"] == "std":
+                stat_tag = "std"
             else:
                 stat_tag = rule["STAT_FN"]
+                self.col = "_".join([
+                    rule["SEGMENT"],
+                    rule["ITEM"],
+                    stat_tag,
+                    self.cut_to_int("{}".format(rule["TOL"]))
+                ])
+                return
             self.col = "_".join([
                 rule["SEGMENT"],
                 rule["ITEM"],
-                stat_tag,
-                self.cut_to_int("{}".format(rule["TOL"]))
-            ])
+                stat_tag])
         else:
             pass
 
@@ -379,3 +471,8 @@ class ColumnProcess():
 def pondo(setup_dict):
     tsk_obj = PondTask(setup_dict)
     tsk_obj.task_exec()
+
+
+def pondo_all(setup_dict):
+    tsk_obj = PondTask(setup_dict)
+    tsk_obj.task_all()
