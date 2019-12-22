@@ -1,0 +1,6 @@
+[qms]
+database_type="oracle"
+database_name="qmsdb"
+server="172.27.36.1"
+username="qms"
+password="system"
