@@ -1,22 +1,26 @@
 from rollen.utils import DirectoryUtils
 
-from .assem_coil_info import CoilInfoAssembler
-from .assem_func_option import FuncOptionAssembler
-from .assem_length_mode import LengthModeAssembler
+from .assembler_coil_info import CoilInfoAssembler
+from .assembler_func_option import FuncOptionAssembler
+from .assembler_length_mode import LengthModeAssembler
 
 
-class Assembler:
+class ParamAssembler:
 
     def __init__(self, assem_type):
 
         self.assem_type = assem_type
 
-    def set_rule(self, rule):
+    def get_rule(self):
+        return self.rule
 
+    def set_rule(self, rule):
         self.rule = rule
 
-    def set_record(self, record):
+    def get_record(self):
+        return self.record
 
+    def set_record(self, record):
         self.record = record
 
     def check_attribute(self):
@@ -29,10 +33,15 @@ class Assembler:
 
     def get_params(self):
         self.check_attribute()
-        params = getattr(self, "assem_{}_params".format(self.assem_type))()
+        if self.assem_type == "stat":
+            params = self.assem_stat_params()
+        elif self.assem_type == "export":
+            params = self.assem_export_params()
+        else:
+            raise Exception("wrong assemble type")
         return params
 
-    def assem_stats_params(self):
+    def assem_stat_params(self):
 
         params = {}
 
@@ -66,7 +75,7 @@ class Assembler:
 
         return params
 
-    def assem_exports_params(self):
+    def assem_export_params(self):
 
         params = {}
 

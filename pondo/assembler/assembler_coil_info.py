@@ -13,7 +13,10 @@ class CoilInfoAssembler():
         return self.record["coil_id"]
 
     def get_factor_name(self):
-        return self.rule.get_factor_name()
+        if type(self.rule) == str:
+            return self.rule
+        else:
+            return self.rule.get_factor_name()
 
     def get_date(self):
         return self.record["start_date"]

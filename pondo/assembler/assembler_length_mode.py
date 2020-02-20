@@ -1,4 +1,4 @@
-from rollen.bootstrap import Registry
+import rollen
 
 
 class LengthModeAssembler():
@@ -8,7 +8,7 @@ class LengthModeAssembler():
         self.rule = rule
         self.record = record
 
-        self.conf = Registry.get_config("lengthMode")
+        self.conf = rollen.registry.get_config("lengthMode")
 
         self.has_head_tail_perc = False
         self.has_head_tail_len = False

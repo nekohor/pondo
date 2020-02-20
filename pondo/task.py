@@ -22,7 +22,7 @@ class Task():
 
     def build_cols(self):
 
-        cols = ["coil_id"]
+        cols = []
         for idx in self.table.index:
             cols.append(ColumnName(Rule(self.table.loc[idx])).get_col())
         return cols
@@ -36,7 +36,7 @@ class Task():
             return self._columns
 
     def get_factors(self):
-        return list(self.table["FACTOR"].drop_duplicates())
+        return self.table["FACTOR"].drop_duplicates()
 
     def get_indexs(self):
         return self.table.index
@@ -46,6 +46,9 @@ class Task():
 
     def get_col_name(self, idx):
         return self._columns[idx]
+
+    def get_factor_name(self, idx):
+        return self.table.loc[idx, "FACTOR"]
 
     def is_query_cid(self):
 
